@@ -1,6 +1,7 @@
 # ERG DASH testbed overview and how-tos
 ## Testbed diagram
-![testbed-oct-25](https://github.com/user-attachments/assets/09e859fd-bf65-4b87-a9b2-5fa144b1f91b)
+<img width="1957" height="1857" alt="testbed-oct-25" src="https://github.com/user-attachments/assets/676c4b9a-b179-4bd6-8b1a-9cf9d14b7d2a" />
+
 
 Download the diagram: [testbed-oct-25.pdf](https://github.com/user-attachments/files/25049991/testbed-oct-25.pdf)
 ## Testbed picture
