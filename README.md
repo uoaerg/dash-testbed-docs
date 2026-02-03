@@ -18,3 +18,43 @@
 
 
 Download the diagram: [testbed-oct-25.pdf](https://github.com/user-attachments/files/25049991/testbed-oct-25.pdf)
+
+## HOW TOs
+### SSH into the DASH/QUIC server
+- connect using one of the provided blue ethernet cables from your laptop to ports 1-4 of client-sw
+- using putty or a terminal, ssh using the username and password provided to 192.168.99.100 (e.g. ssh your-user@192.168.99.100). You should be able to run any command on the server using sudo.
+### Change the video shown on the DASH/QUIC server
+- SSH into the DASH/QUIC server
+- Download the required video in /var/www/html (the example below assumes it is named input.mp4)
+- Run the ffmpeg command to transform it into DASH chunks:
+```
+ffmpeg -i input.mp4 \
+  -map 0:v -map 0:v -map 0:a \
+  -c:v libx264 -profile:v main -preset veryfast -crf 20 \  # uses Constant Rate Factor rather than Constant Bitrate
+  -s:v:0 1920x1080 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k \ # a 1080p quality profile, caps bitrate at 5Mbps
+  -s:v:1 1280x720  -b:v:1 2800k -maxrate:v:1 3000k -bufsize:v:1 4200k \ # another 420p quality profile, caps bitrate at 2.8Mbps
+  -c:a aac -b:a 128k -ac 2 \
+  -f dash \
+  -seg_duration 4 \   # THIS IS THE DEFINED SEGMENT DURATION - 4 seconds here
+  -use_timeline 1 \
+  -use_template 1 \
+  -init_seg_name 'init-$RepresentationID$.mp4' \
+  -media_seg_name 'chunk-$RepresentationID$-$Number%05d$.m4s' \
+  -adaptation_sets 'id=0,streams=v id=1,streams=a' \
+  manifest.mpd
+```
+Once finished the new video will be available at https://dash.erg.abdn.ac.uk.
+
+### SSH into the delay emulator server
+- connect using one of the provided blue ethernet cables from your laptop to ports 1-4 of client-sw
+- using putty or a terminal, ssh using the username and password provided to 192.168.99.1 (e.g. ```ssh your-user@192.168.99.1```). You should be able to run any command on the server, some commands might require the password again.
+  
+### Change the latency of the delay emulator server
+- SSH into the delay emulator server
+- once logged in, run command sudo python3 config_pipes.py desired-bandwidth-in-mbps desired-delay-in-ms (e.g. ```sudo python3 config_pipes.py 25 600``` will configure the delay to be 600 ms and the BW to be 25 Mbps)
+- check this has worked by pinging the QUIC/DASH server from your laptop (```ping 192.168.99.100```)
+
+### Running experiments
+- connect using one of the provided blue ethernet cables from your laptop to ports 1-4 of client-sw, and turn off other networks like WiFi
+- Change the latency of the delay emulator server to the desired one for experimentation
+- go to https://dash.erg.abdn.ac.uk
