@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Advanced Telemetry Player</title>
-  <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+  <script src="dash.all.min.js"></script>
   <style>
     body { font-family: sans-serif; background: #111; color: #eee; }
     video { width: 80%; margin: 20px 0; }
@@ -32,9 +32,16 @@
 
 <br>
 
-<button onclick="downloadLogs()">Download Logs</button>
-<button onclick="clearLogs()">Clear Logs</button>
+<button onclick="downloadLogs()" id="downloadLogs">Download Logs</button>
+<button onclick="clearLogs()" id="clearLogs">Clear Logs</button>
 
+<br>
+
+<button onclick="playBBB_Old()" id="playBBB_Old">Play Big Buck Bunny Old</button>
+<button onclick="playBBB_New()" id="playBBB_New">Play Big Buck Bunny New</button>
+<button onclick="playBugsBunny()" id="playBugsBunny">Play Bugs Bunny</button>
+
+<br>
 <pre id="log"></pre>
 
 <script>
@@ -60,11 +67,12 @@
   }
 
   const player = dashjs.MediaPlayer().create();
-  player.initialize(video, "manifest.mpd", true);
+  player.initialize(video, null, true);
 
   player.updateSettings({
-    debug: { logLevel: dashjs.Debug.LOG_LEVEL_NONE }
+    debug: { logLevel: dashjs.Debug.LOG_LEVEL_NONE },
   });
+  console.log(player.getSettings());
 
   const events = dashjs.MediaPlayer.events;
 
@@ -75,29 +83,102 @@
   player.on(events.QUALITY_CHANGE_REQUESTED, e => {
     log("QUALITY_CHANGE_REQUESTED", {
       mediaType: e.mediaType,
-      newQuality: e.newQuality
+      newBitrateKbit: e.newRepresentation.bitrateInKbit,
+      oldBitrateKbit: e.oldRepresentation.bitrateInKbit
     });
   });
 
   player.on(events.QUALITY_CHANGE_RENDERED, e => {
-    const bitrates = player.getBitrateInfoListFor(e.mediaType);
-    const bitrate = bitrates[e.newQuality]?.bitrate || 0;
-
-    bitrateEl.textContent = Math.round(bitrate / 1000);
+    if (e.mediaType === "video") {
+      const bitrate = e.newRepresentation.bitrateInKbit;
+      bitrateEl.textContent = bitrate;
+    }
 
     log("QUALITY_CHANGE_RENDERED", {
       mediaType: e.mediaType,
-      quality: e.newQuality,
-      bitrate
+      newBitrateKbit: e.newRepresentation.bitrateInKbit
     });
   });
 
+  player.on(events.REPRESENTATION_SWITCH, e => {
+    log("REPRESENTATION_SWITCH", {
+      mediaType: e.mediaType,
+      currentBitrateKbit: e.currentRepresentation.bitrateInKbit
+    });
+  });
+  
+  player.on(events.PLAYBACK_STARTED, e=> {
+    const representation = player.getCurrentRepresentationForType("video");
+
+    const bitrate = representation.bitrateInKbit;
+
+    bitrateEl.textContent = bitrate;
+
+    log ("PLAYBACK_STARTED", {
+        startTime: e.startTime,
+        bitrateKbit: bitrate
+    });
+  });
+
+  player.on(events.PLAYBACK_ENDED, e=> {
+    log("PLAYBACK_ENDED", {})
+  });
+
+  player.on(events.PLAYBACK_ERROR, e => {
+    log("PLAYBACK_ERROR", {
+      errorCode: e.error.code,
+      errorMessage: e.error.message
+    });
+  });
+
+  player.on(events.PLAYBACK_INITIALIZED, e => {
+    log("PLAYBACK_INITIALIZED", {})
+  });
+  
+  /*
+  player.on(events.PLAYBACK_LOADED_DATA, e => {
+    log("PLAYBACK_LOADED_DATA", {})
+  });
+
+  player.on(events.PLAYBACK_METADATA_LOADED, e => {
+    log("PLAYBACK_METADATA_LOADED", {})
+  });
+  */
+  player.on(events.PLAYBACK_PAUSED, e => {
+    log("PLAYBACK_PAUSED", {
+      ended: e.ended
+    });
+  });
+
+  player.on(events.PLAYBACK_PLAYING, e => {
+    log("PLAYBACK_PLAYING", {
+      playingTime: e.playingTime
+    });
+  });
+
+  /*
+  player.on(events.PLAYBACK_RATE_CHANGED, e => {
+    log("PLAYBACK_RATE_CHANGED", {
+      playbackRate: e.playbackRate
+    });
+  });
+  */
+
+  /*
+  player.on(events.PLAYBACK_STALLED, e => {
+    log("PLAYBACK_STALLED");
+  });
+  */
+
+  player.on(events.PLAYBACK_WAITING, e => {
+    log("PLAYBACK_WAITING");
+  });
   /* =========================
      BUFFER LEVEL
      ========================= */
 
   player.on(events.BUFFER_LEVEL_UPDATED, e => {
-    bufferEl.textContent = e.bufferLevel.toFixed(2);
+    bufferEl.textContent = player.getBufferLength();
 
     log("BUFFER_LEVEL_UPDATED", {
       mediaType: e.mediaType,
@@ -105,6 +186,37 @@
     });
   });
 
+  /*
+  player.on(events.BUFFER_EMPTY, e => {
+    log("BUFFER_EMPTY", {
+      mediaType: e.mediaType
+    });
+  });
+  */
+
+  player.on(events.BUFFER_LEVEL_STATE_CHANGED, e => {
+    log("BUFFER_LEVEL_STATE_CHANGED", {
+      newState: e.state
+    });
+  });
+
+  /*
+  player.on(events.BUFFER_LOADED, e => {
+    log("BUFFER_LOADED", {
+      mediaType: e.mediaType
+    });
+  });
+  */
+
+  /*
+  player.on(events.CAN_PLAY, e => {
+    log("CAN_PLAY", {})
+  });
+
+  player.on(events.CAN_PLAY_THROUGH, e => {
+    log("CAN_PLAY_THROUGH", {})
+  });
+  */
   /* =========================
      SEGMENT TIMING + THROUGHPUT
      ========================= */
@@ -116,7 +228,7 @@
 
     log("FRAGMENT_LOADING_STARTED", {
       url: e.request.url,
-      quality: e.request.quality,
+      quality: e.request.bitrateInKbit,
       mediaType: e.request.mediaType
     });
   });
@@ -138,19 +250,93 @@
     log("FRAGMENT_LOADING_COMPLETED", {
       url: e.request.url,
       mediaType: e.request.mediaType,
-      quality: e.request.quality,
+      quality: e.request.bitrateInKbit,
+      durationMs: durationMs,
+      bytesLoaded: bytes,
+      throughputKbps: throughputKbps
+    });
+  });
+
+  player.on(events.FRAGMENT_LOADING_ABANDONED, e => {
+    if (!e.request || !e.request.url) return;
+
+    const start = fragmentStartTimes[e.request.url];
+    const end = performance.now();
+    const durationMs = end - start;
+
+    const bytes = e.request.bytesLoaded || 0;
+    const throughputKbps = durationMs > 0
+      ? Math.round((bytes * 8) / durationMs)
+      : 0;
+    
+    throughputEl.textContent = throughputKbps;
+
+    log("FRAGMENT_LOADING_ABANDONED", {
+      url: e.request.url,
+      mediaType: e.request.mediaType,
+      quality: e.request.bitrateInKbit,
+      durationMs: durationMs,
+      bytesLoaded: bytes,
+      throughputKbps: throughputKbps
+    });
+  });
+
+  /*
+  player.on(events.FRAGMENT_LOADING_PROGRESS, e => {
+    if (!e.request || !e.request.url) return;
+
+    const start = fragmentStartTimes[e.request.url];
+    const end = performance.now();
+    const durationMs = end - start;
+
+    const bytes = e.request.bytesLoaded || 0;
+    const throughputKbps = durationMs > 0
+      ? Math.round((bytes * 8) / durationMs)
+      : 0;
+    
+    throughputEl.textContent = throughputKbps;
+
+    log("FRAGMENT_LOADING_PROGRESS", {
+      url: e.request.url,
+      mediaType: e.request.mediaType,
+      quality: e.request.bitrateInKbit,
       durationMs,
       bytes,
       throughputKbps
     });
   });
-
+  */
   /* =========================
      ERROR HANDLING
      ========================= */
 
   player.on(events.ERROR, e => {
-    log("ERROR", e);
+    log("ERROR", {
+      errorCode: e.error.code,
+      errorMessage: e.error.message
+    });
+  });
+
+  /* =========================
+     MANIFEST
+     ========================= */
+  /*
+  player.on(events.MANIFEST_LOADED, e => {
+    log("MANIFEST_LOADED", {
+      //data: e.data
+    });
+  });
+  */
+
+  player.on(events.MANIFEST_LOADING_STARTED, e => {
+    log("MANIFEST_LOADING_STARTED", {});
+  });
+
+  /*
+  Unsure why this does not work. e should be of type HTTPRequest which should give it public properties but unable to access them
+  */
+  player.on(events.MANIFEST_LOADING_FINISHED, e => {
+    log("MANIFEST_LOADING_FINISHED", {});
   });
 
   /* =========================
@@ -189,6 +375,21 @@
   function clearLogs() {
     logs.length = 0;
     logView.textContent = "";
+  }
+
+  function playBBB_Old() {
+    player.reset();
+    player.initialize(video, "bunny/manifest.mpd", true);
+  }
+
+  function playBBB_New() {
+    player.reset();
+    player.initialize(video, "BigBuckBunny/BigBuckBunny.mpd", true);
+  }
+
+  function playBugsBunny() {
+    player.reset();
+    player.initialize(video, "old_clip/manifest.mpd", true);
   }
 </script>
 

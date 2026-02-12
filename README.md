@@ -37,7 +37,12 @@ ffmpeg -i input.mp4 \
   -adaptation_sets 'id=0,streams=v id=1,streams=a' \
   manifest.mpd
 ```
+
 Once finished the new video will be available at https://dash.erg.abdn.ac.uk.
+
+For CBR encoding, the script 2pass\_encode\_test.sh can be used. The bitrate ladder is specified at the top using the resolutions and their respective bitrates. For each resolution the script completes a first pass, generating a log file which is then passed for the second pass which generates an .mp4 file. After this is done for each resolution/bitrate, all mp4 files are then segmented into .m4s segments for DASH encoding. The audio track is generated during only the first resolution/bitrate's encoding. Finally, the script moves source files that have been used to the folder done/. All encoded files (.mp4, .m4s, .mpd) are stored in the encoded/ folder. The script can also be used to batch process multiple videos, though they should be carefully grouped as they are all encoded to the same resolutions/bitrates.
+
+The 2 pass structure follows the recommended method according to the ffmpeg wiki for CBR encoding to target file size more accurately: https://trac.ffmpeg.org/wiki/Encode/H.264. The encoded files can then be moved as required for the directory structure.
 
 ### SSH into the delay emulator server
 - connect using one of the provided blue ethernet cables from your laptop to ports 1-4 of client-sw
@@ -68,3 +73,15 @@ Once finished the new video will be available at https://dash.erg.abdn.ac.uk.
 
 Download the diagram: [testbed-oct-25.pdf](https://github.com/user-attachments/files/25049991/testbed-oct-25.pdf)
 
+## Current host server directory structure
+```
+var/
+└─ www/
+    └─ html/
+        ├─ index.html
+        ├─ vid1/
+        │   └─ vid1.mpd
+        └─ vid2/
+            └─ vid2.mpd
+
+```
